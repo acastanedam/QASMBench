@@ -36,11 +36,13 @@ class QASMetric():
         self.STANDARD_GATE_TABLE = {
             "r": 1,   # 2-Parameter rotation around Z-axis and X-axis
             "u3": 1,  # 3-parameter 2-pulse single qubit gate
+            "u": 1,  # 3-parameter 2-pulse single qubit gate
             "u2": 1,  # 2-parameter 1-pulse single qubit gate
             "u1": 1,  # 1-parameter 0-pulse single qubit gate
             "cx": 1,  # controlled-NOT
             "id": 1,  # idle gate(identity)
             "x": 1,  # Pauli gate: bit-flip
+            "sx": 1,  # Pauli gate: square root bit-flip
             "y": 1,  # Pauli gate: bit and phase flip
             "z": 1,  # Pauli gate: phase flip
             "h": 1,  # Clifford gate: Hadamard
@@ -87,7 +89,7 @@ class QASMetric():
         # For the statistics of the number of CNOT or CX gate in the circuit
 
         # Number of CX in Standard gates
-        self.STANDARD_CX_TABLE = {"r": 0,"u3": 0, "u2": 0, "u1": 0, "cx": 1, "id": 0, "x": 0, "y": 0, "z": 0, "h": 0,
+        self.STANDARD_CX_TABLE = {"r": 0, "u": 0, "u3": 0, "u2": 0, "u1": 0, "cx": 1, "id": 0, "x": 0, "sx": 0, "y": 0, "z": 0, "h": 0,
                              "s": 0, "sdg": 0, "t": 0, "tdg": 0, "rx": 0, "ry": 0, "rz": 0, "c1": 0, "c2": 1}
         # Number of CX in Composition gates
         self.COMPOSITION_CX_TABLE = {"p":0,"cz": 1, "cy": 1, "swap": 3, "ch": 2, "ccx": 6, "cswap": 8, "crx": 2, "cry": 2,
