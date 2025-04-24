@@ -1,6 +1,7 @@
 OPENQASM 2.0;
 include "qelib1.inc";
 qreg reg[8];
+creg c[8];
 h reg[3];
 h reg[2];
 h reg[0];
@@ -10810,11 +10811,11 @@ cx reg[7],reg[6];
 y reg[7];
 y reg[6];
 
-measure q[0] -> c[0];
-measure q[1] -> c[1];
-measure q[2] -> c[2];
-measure q[3] -> c[3];
-measure q[4] -> c[4];
-measure q[5] -> c[5];
-measure q[6] -> c[6];
-measure q[7] -> c[7];
+measure reg[0] -> c[0];
+measure reg[1] -> c[1];
+measure reg[2] -> c[2];
+measure reg[3] -> c[3];
+measure reg[4] -> c[4];
+measure reg[5] -> c[5];
+measure reg[6] -> c[6];
+measure reg[7] -> c[7];
