@@ -1,5 +1,5 @@
 qiskit<2.0
 networkx
 pylatexenc
+-e file:///home/castanedamedina/shared/p400hpc86/castanedamedina/Work/Development/ITWM/QCOMP/PROJECTS/QCSTACK/develop/pyqcc
 
-pyqcc @ git+ssh://github.com/acastanedam/pyqcc.git@main

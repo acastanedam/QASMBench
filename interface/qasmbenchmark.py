@@ -1,6 +1,7 @@
 import os
 
 from qcc.module.pyqcc import main
+from qiskit import QuantumCircuit
 
 
 class QASMBenchmark:
@@ -267,8 +268,9 @@ class QASMBenchmark:
         compile_args = {"program_name": circ_file}
         compile_args.update(**self.transpile_args)
         qasm = main(compile_args, pyqcc_env=True)
-
-        return qasm.circuit
+        _qasm_out_name = str(qasm.out_filename)
+        _circuit = QuantumCircuit.from_qasm_file(f"{_qasm_out_name}.qasm")
+        return _circuit
 
     def _process_circ(self, circ_file):
         """
@@ -281,12 +283,7 @@ class QASMBenchmark:
             The processed QuantumCircuit object.
         """
         if self.do_transpile:
-            import pdb
-
-            pdb.set_trace()
-
             circ = self._qcc_compile(circ_file)
-
         if self._remove_final_measurements:
             circ.remove_final_measurements()
         return circ
