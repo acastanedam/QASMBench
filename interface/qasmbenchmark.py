@@ -1,5 +1,7 @@
 import os
-from qiskit import QuantumCircuit, transpile
+
+from qcc.module.pyqcc import main
+
 
 class QASMBenchmark:
     """
@@ -7,7 +9,7 @@ class QASMBenchmark:
     The interface can behave like a iterator, a list, or a dict.
 
     Examples:
-    
+
         Initiate the object:
 
         .. code-block::
@@ -16,7 +18,7 @@ class QASMBenchmark:
             path = "path/to/the/root/of/QASMBench"
 
             # selected category for QASMBench
-            category = "small" 
+            category = "small"
 
             # select only the circuits with the number of qubits in the list
             num_qubits_list = list(range(3, 5))
@@ -29,13 +31,13 @@ class QASMBenchmark:
 
             # arguments for qiskit.transpile(). backend should be provide at least
             transpile_args = {}
-            
+
             bm = QASMBenchmark(path, category, num_qubits_list=num_qubits_list, remove_final_measurements=remove_final_measurements, do_transpile=do_transpile, **transpile_args)
-        
+
         Retrieve Circuits:
 
         1. Behave like a iterator:
-        
+
         .. code-block::
 
             circ_1 = next(bm)
@@ -47,7 +49,7 @@ class QASMBenchmark:
 
             circ = bm[0]
             circ_list = bm[:2]
-        
+
         3. Behave like a dict:
 
         .. code-block::
@@ -55,8 +57,8 @@ class QASMBenchmark:
             circ = bm.get("teleportation_n3")
             circ_list = bm.get(["teleportation_n3", "adder_n4"])
 
-        
-        
+
+
         Get information of the benchmark:
 
         .. code-block::
@@ -99,8 +101,15 @@ class QASMBenchmark:
         num_gates(circ_name, instruction=None): Returns the number of gates (or the number of gates of a specific type) in the circuit with the given name.
     """
 
-
-    def __init__(self, path, category, num_qubits_list = None, remove_final_measurements = False, do_transpile = False, **transpile_args):
+    def __init__(
+        self,
+        path,
+        category,
+        num_qubits_list=None,
+        remove_final_measurements=False,
+        do_transpile=False,
+        **transpile_args,
+    ):
         self.path = path
         self.category = category
         self.num_qubits_list = num_qubits_list
@@ -117,13 +126,11 @@ class QASMBenchmark:
         self.do_transpile = do_transpile
         self.transpile_args = transpile_args
 
-
     def _order_circ_name_by_num_qubits(self):
         """
         Orders the circuits in the benchmark by the number of qubits in each circuit.
         """
         self._circ_name_list = sorted(self._circ_name_list, key=self.num_qubits)
-
 
     def _filter_num_qubit(self):
         """
@@ -142,9 +149,8 @@ class QASMBenchmark:
                     processed_circ_name_list.append(circ_name)
         elif self.num_qubits_list == None:
             processed_circ_name_list = self._circ_name_list
-        
-        self._circ_name_list = processed_circ_name_list
 
+        self._circ_name_list = processed_circ_name_list
 
     def _process_circ_name_list(self):
         """
@@ -152,7 +158,6 @@ class QASMBenchmark:
         """
         self._order_circ_name_by_num_qubits()
         self._filter_num_qubit()
-
 
     def __next__(self):
         """
@@ -170,7 +175,6 @@ class QASMBenchmark:
         else:
             raise StopIteration
 
-
     def __len__(self):
         """
         Gets the number of circuits in the benchmark.
@@ -179,7 +183,6 @@ class QASMBenchmark:
             The number of circuits in the benchmark.
         """
         return len(list(self._circ_name_list))
-
 
     def __getitem__(self, i):
         """
@@ -202,10 +205,16 @@ class QASMBenchmark:
         elif isinstance(i, list):
             return [self[ii] for ii in i]
         elif isinstance(i, slice):
-            return [self[ii] for ii in range(i.start if i.start else 0, min(i.stop, len(self)) if i.stop else len(self), i.step if i.step else 1)]
+            return [
+                self[ii]
+                for ii in range(
+                    i.start if i.start else 0,
+                    min(i.stop, len(self)) if i.stop else len(self),
+                    i.step if i.step else 1,
+                )
+            ]
         else:
             raise TypeError
-
 
     @property
     def circ_list(self):
@@ -217,7 +226,6 @@ class QASMBenchmark:
         """
         return self[:]
 
-
     @property
     def circ_name_list(self):
         """
@@ -227,7 +235,6 @@ class QASMBenchmark:
             The list of circuit names in the benchmark.
         """
         return self._circ_name_list
-
 
     def get(self, circ_name):
         """
@@ -245,9 +252,10 @@ class QASMBenchmark:
         """
         if isinstance(circ_name, str):
             if circ_name in self._circ_name_list:
-                filename = os.path.join(self._circ_dir_path, circ_name, circ_name + ".qasm")
-                circ = QuantumCircuit.from_qasm_file(filename)
-                return self._process_circ(circ)
+                filename = os.path.join(
+                    self._circ_dir_path, circ_name, circ_name + ".qasm"
+                )
+                return self._process_circ(filename)
             else:
                 raise ValueError("Circuit does not exist in the benchmark")
         elif isinstance(circ_name, list):
@@ -255,23 +263,33 @@ class QASMBenchmark:
         else:
             raise TypeError
 
+    def _qcc_compile(self, circ_file):
+        compile_args = {"program_name": circ_file}
+        compile_args.update(**self.transpile_args)
+        qasm = main(compile_args, pyqcc_env=True)
 
-    def _process_circ(self, circ):
+        return qasm.circuit
+
+    def _process_circ(self, circ_file):
         """
         Processes the given QuantumCircuit object by transpiling and removing final measurements.
 
         Args:
-            circ (QuantumCircuit): The QuantumCircuit object to be processed.
+            circ_file : The object to be processed.
 
         Returns:
             The processed QuantumCircuit object.
         """
         if self.do_transpile:
-            circ = transpile(circ, **self.transpile_args)
+            import pdb
+
+            pdb.set_trace()
+
+            circ = self._qcc_compile(circ_file)
+
         if self._remove_final_measurements:
             circ.remove_final_measurements()
         return circ
-
 
     def num_qubits(self, circ_name):
         """
@@ -285,8 +303,7 @@ class QASMBenchmark:
         """
         return int(circ_name.split("_")[-1][1:])
 
-
-    def num_gates(self, circ_name, instruction = None):
+    def num_gates(self, circ_name, instruction=None):
         """
         Returns the number of gates in the circuit with the given instruction name.
 
@@ -305,14 +322,18 @@ class QASMBenchmark:
             circ = self.get(circ_name)
         elif isinstance(circ_name, int):
             circ = self[circ_name]
-        
+
         if not instruction:
             return circ.size()
         elif isinstance(instruction, str):
             return circ.size(filter_function=lambda x: x.operation.name == instruction)
         elif isinstance(instruction, list) and isinstance(instruction[0], str):
-            return sum([circ.size(filter_function=lambda x: x.operation.name == ins) for ins in instruction])
-
+            return sum(
+                [
+                    circ.size(filter_function=lambda x: x.operation.name == ins)
+                    for ins in instruction
+                ]
+            )
 
     def __repr__(self) -> str:
         """
@@ -322,7 +343,6 @@ class QASMBenchmark:
             A string representation of the object.
         """
         return str(self)
-
 
     def __str__(self) -> str:
         """

@@ -16,7 +16,23 @@ remove_final_measurements = True
 do_transpile = True
 
 # arguments for qiskit.transpile(). backend should be provide at least
-transpile_args = {}
+SERVICE_OR_SDK = "qiskit"
+PROVIDER_NAME = "ibmq"
+BACKEND_NAME = "fake_kolkata"
+COMPILER_NAME = "qiskit"
+OPTIMIZATION_LEVEL = 1
+EXECUTION_TYPE = "lr"
+PLOT_OUTPUT = True
+
+transpile_args = {
+    "service_or_sdk": SERVICE_OR_SDK,
+    "provider_name": PROVIDER_NAME,
+    "backend_name": BACKEND_NAME,
+    "compiler_name": COMPILER_NAME,
+    "optimization_level": OPTIMIZATION_LEVEL,
+    "execution_type": EXECUTION_TYPE,
+    "plot_output": PLOT_OUTPUT,
+}
 
 bm = QASMBenchmark(
     path,

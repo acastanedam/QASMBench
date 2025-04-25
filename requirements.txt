@@ -1,3 +1,5 @@
 qiskit<2.0
 networkx
 pylatexenc
+
+pyqcc @ git+ssh://github.com/acastanedam/pyqcc.git@main
