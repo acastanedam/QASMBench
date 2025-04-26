@@ -8,16 +8,16 @@
 # PNNL IPID: 31924-E, IR: PNNL-SA-153380, PNNL-SA-162867, ECCN:EAR99
 # ----------------------------------------------------------------------
 
+import itertools
+import re
+
+import matplotlib.pyplot as plt
+import networkx as nx
+import numpy as np
 import qiskit
-from qiskit import QuantumCircuit,QuantumRegister,ClassicalRegister
+from qiskit import ClassicalRegister, QuantumCircuit, QuantumRegister
 from qiskit.compiler import *
 from qiskit.transpiler.passes import RemoveBarriers
-import re
-import numpy as np
-import matplotlib.pyplot as plt
-import itertools
-import networkx as nx
-
 
 # Metrics required for QASM Bench:
 # - Binary matrix representing circuit
@@ -27,12 +27,14 @@ import networkx as nx
 # - Number of measurements
 # - Number of 1-Qubit gates
 
+
 class QMetric:
     """
     QMetric describes the metric class for analysing QASM. On calling ".evaluate_qasm", the QASM will be evaluated
     through each of the "compute_...." clauses below under ".evaluate_qasm". To change any of the tags that it generates,
     or if you need to change the metrics being calculated, look under evaluate_qasm().
     """
+
     def __init__(self, qasm):
         """
         QMetric initialisation function. Gate tables are populated, and QASM preprocessing is performed.
@@ -44,7 +46,7 @@ class QMetric:
         # Standard gates are gates defined in OpenQASM header.
         # Dictionary in {"gate name": number of standard gates inside}
         self.STANDARD_GATE_TABLE = {
-            "r": 1,   # 2-Parameter rotation around Z-axis and X-axis
+            "r": 1,  # 2-Parameter rotation around Z-axis and X-axis
             "sx": 1,  # SX Gate - Square root X gate
             "u3": 1,  # 3-parameter 2-pulse single qubit gate
             "u2": 1,  # 2-parameter 1-pulse single qubit gate
@@ -63,12 +65,13 @@ class QMetric:
             "ry": 1,  # Rotation around Y-axis
             "rz": 1,  # Rotation around Z-axis
             "c1": 1,  # Arbitrary 1-qubit gate
-            "c2": 1}  # Arbitrary 2-qubit gate
+            "c2": 1,
+        }  # Arbitrary 2-qubit gate
 
         # Composition gates are gates defined in OpenQASM header.
         # Dictionary in {"gate name": number of standard gates inside}
         self.COMPOSITION_GATE_TABLE = {
-            "p":1, # Phase Gate
+            "p": 1,  # Phase Gate
             "cz": 3,  # Controlled-Phase
             "cy": 3,  # Controlled-Y
             "swap": 3,  # Swap
@@ -87,8 +90,7 @@ class QMetric:
             "rc3x": 18,  # Relative-phase 3-controlled X gate
             "c3x": 27,  # 3-controlled X gate
             "c3sqrtx": 27,  # 3-controlled sqrt(X) gate
-            "c4x": 87  # 4-controlled X gate
-
+            "c4x": 87,  # 4-controlled X gate
         }
 
         # OpenQASM native gate table, other gates are user-defined.
@@ -98,28 +100,82 @@ class QMetric:
         # For the statistics of the number of CNOT or CX gate in the circuit
 
         # Number of CX in Standard gates
-        self.STANDARD_CX_TABLE = {"r": 0,"u3": 0, "u2": 0, "u1": 0, "sx" : 0, "cx": 1, "id": 0, "x": 0, "y": 0, "z": 0, "h": 0,
-                             "s": 0, "sdg": 0, "t": 0, "tdg": 0, "rx": 0, "ry": 0, "rz": 0, "c1": 0, "c2": 1}
+        self.STANDARD_CX_TABLE = {
+            "r": 0,
+            "u3": 0,
+            "u2": 0,
+            "u1": 0,
+            "sx": 0,
+            "cx": 1,
+            "id": 0,
+            "x": 0,
+            "y": 0,
+            "z": 0,
+            "h": 0,
+            "s": 0,
+            "sdg": 0,
+            "t": 0,
+            "tdg": 0,
+            "rx": 0,
+            "ry": 0,
+            "rz": 0,
+            "c1": 0,
+            "c2": 1,
+        }
         # Number of CX in Composition gates
-        self.COMPOSITION_CX_TABLE = {"p":0,"cz": 1, "cy": 1, "swap": 3, "ch": 2, "ccx": 6, "cswap": 8, "crx": 2, "cry": 2,
-                                "crz": 2, "cu1": 2, "cu3": 2, "rxx": 2, "rzz": 2, "ryy":2, "rccx": 3, "rc3x": 6, "c3x": 6,
-                                "c3sqrtx": 6,
-                                "c4x": 18}
+        self.COMPOSITION_CX_TABLE = {
+            "p": 0,
+            "cz": 1,
+            "cy": 1,
+            "swap": 3,
+            "ch": 2,
+            "ccx": 6,
+            "cswap": 8,
+            "crx": 2,
+            "cry": 2,
+            "crz": 2,
+            "cu1": 2,
+            "cu3": 2,
+            "rxx": 2,
+            "rzz": 2,
+            "ryy": 2,
+            "rccx": 3,
+            "rc3x": 6,
+            "c3x": 6,
+            "c3sqrtx": 6,
+            "c4x": 18,
+        }
 
         self.CX_TABLE = {**self.STANDARD_CX_TABLE, **self.COMPOSITION_CX_TABLE}
 
         self.USER_DEFINED_GATES = {}
         # Keywords in QASM that are currently not used
-        self.other_keys = ["measure", "barrier", "OPENQASM", "include", "creg", "if", "reset"]
+        self.other_keys = [
+            "measure",
+            "barrier",
+            "OPENQASM",
+            "include",
+            "creg",
+            "if",
+            "reset",
+        ]
         self.measure_key = "measure"
-        self.trigger_key = 'if'
-        self.skip_keys = ["OPENQASM","include", "qreg", "creg","barrier", "reset","//"]
+        self.trigger_key = "if"
+        self.skip_keys = [
+            "OPENQASM",
+            "include",
+            "qreg",
+            "creg",
+            "barrier",
+            "reset",
+            "//",
+        ]
         # To register and look-up user-defined function in QASM
         # Format: {"function_name": gate_num}
         function_table = {}
         # Format: {"function_name": cx_gate_num}
         cx_table = {}
-        self.circuit = qiskit.QuantumCircuit().from_qasm_str(qasm)
+        self.circuit = qiskit.QuantumCircuit.from_qasm_str(qasm)
         self.circuit = RemoveBarriers()(self.circuit)
         """
         QASM preprocessing and analysis is performed from here onwards.
@@ -152,44 +208,49 @@ class QMetric:
         self.compute_entanglement()
         self.compute_measurement()
         self.compute_parallelism()
-        print('-'*10+'Baseline Metrics'+'-'*10)
-        print(f'Qubit Count: {self.qubit_count}')
-        print(f'Maximum Qubit Depth: {self.max_qubit_depth}')
-        print(f'Maximum Qubit Depth ID: {self.max_qubit_depth_id}')
-        print(f'Single Gate Count: {self.single_gate_count}')
-        print(f'Dual Gate Count: {self.dual_gate_count}')
-        print('-'*10+'Calculated Metrics'+'-'*10)
+        print("-" * 10 + "Baseline Metrics" + "-" * 10)
+        print(f"Qubit Count: {self.qubit_count}")
+        print(f"Maximum Qubit Depth: {self.max_qubit_depth}")
+        print(f"Maximum Qubit Depth ID: {self.max_qubit_depth_id}")
+        print(f"Single Gate Count: {self.single_gate_count}")
+        print(f"Dual Gate Count: {self.dual_gate_count}")
+        print("-" * 10 + "Calculated Metrics" + "-" * 10)
         print(f"---QASMBENCH METRICS---")
-        print(f"Gate Density: {self.operation_density:.3f}\n"
-              f"Retention Lifespan: {self.fdm:.3f}\n"
-              f"Measurement Density: {self.measurement_ratio:.3f}\n"
-              f"Entanglement Variance : {self.entanglement_variance:.3f}\n")
+        print(
+            f"Gate Density: {self.operation_density:.3f}\n"
+            f"Retention Lifespan: {self.fdm:.3f}\n"
+            f"Measurement Density: {self.measurement_ratio:.3f}\n"
+            f"Entanglement Variance : {self.entanglement_variance:.3f}\n"
+        )
         print(f"---SUPERMARQ METRICS---")
-        print(f"Communication: {self.communication}\n"
-              f"Liveness: {self.liveness}\n"
-              f"Parallelism: {self.parallelism}\n"
-              f"Entanglement: {self.entanglement}\n"
-              f"Depth: {self.supermarq_depth}\n"
-              f"Measurement: {self.measurement}")
-        return {'qubit_count':self.qubit_count,
-                # Circuit depth is defined in calculations below, therefore we need not a function, same as width
-                'circuit_depth':self.depth,
-                'circuit_width':self.qubit_count,
-                'retention_lifespan':self.fdm,
-                'gate_density':self.operation_density,
-                'dual_gate_count':self.dual_gate_count,
-                'measurement_density':self.measurement_ratio,
-                'size_factor':self.size_factor,
-                'gate_count':self.total_gate_count,
-                'entanglement_variance':self.entanglement_variance,
-                'circuit_depth': self.circ_matrix.shape[1],
-                'communication_supermarq' : self.communication,
-                'measurement_supermarq': self.measurement,
-                'depth_supermarq' : self.supermarq_depth,
-                'entanglement_supermarq': self.entanglement,
-                'parallelism_supermarq' : self.parallelism,
-                'liveness_supermarq' : self.liveness}
-
+        print(
+            f"Communication: {self.communication}\n"
+            f"Liveness: {self.liveness}\n"
+            f"Parallelism: {self.parallelism}\n"
+            f"Entanglement: {self.entanglement}\n"
+            f"Depth: {self.supermarq_depth}\n"
+            f"Measurement: {self.measurement}"
+        )
+        return {
+            "qubit_count": self.qubit_count,
+            # Circuit depth is defined in calculations below, therefore we need not a function, same as width
+            "circuit_depth": self.depth,
+            "circuit_width": self.qubit_count,
+            "retention_lifespan": self.fdm,
+            "gate_density": self.operation_density,
+            "dual_gate_count": self.dual_gate_count,
+            "measurement_density": self.measurement_ratio,
+            "size_factor": self.size_factor,
+            "gate_count": self.total_gate_count,
+            "entanglement_variance": self.entanglement_variance,
+            "circuit_depth": self.circ_matrix.shape[1],
+            "communication_supermarq": self.communication,
+            "measurement_supermarq": self.measurement,
+            "depth_supermarq": self.supermarq_depth,
+            "entanglement_supermarq": self.entanglement,
+            "parallelism_supermarq": self.parallelism,
+            "liveness_supermarq": self.liveness,
+        }
 
     # Metric Definitions:
     # ----------------------------
@@ -200,8 +261,10 @@ class QMetric:
         Compute Operation Density and set self.operation_density (Known as Gate Density in QASMBench)
         :return: None
         """
-        circuit_area = self.circ_matrix.shape[0]*self.circ_matrix.shape[1]
-        self.operation_density = (self.single_gate_count + 2*self.dual_gate_count)/(self.depth*self.qubit_count)
+        circuit_area = self.circ_matrix.shape[0] * self.circ_matrix.shape[1]
+        self.operation_density = (self.single_gate_count + 2 * self.dual_gate_count) / (
+            self.depth * self.qubit_count
+        )
 
     # ----------------------------
     # Calculate Measurement Density,
@@ -211,7 +274,9 @@ class QMetric:
         Compute Measurement Density and set self.measurement_density (Known as Measurement Ratio in QASMBench)
         :return: None
         """
-        self.measurement_ratio = np.log(self.circ_matrix.shape[0]*self.depth)/self.measurement_count
+        self.measurement_ratio = (
+            np.log(self.circ_matrix.shape[0] * self.depth) / self.measurement_count
+        )
 
     # ----------------------------
     # Calculate Retention Lifespan
@@ -239,7 +304,7 @@ class QMetric:
         :return: None
         """
         self.application_time = self.circ_matrix.shape[1]
-        self.quantum_area = self.application_time*self.qubit_count
+        self.quantum_area = self.application_time * self.qubit_count
 
     # ----------------------------
     # Calculate described entanglement variance from QASMBench
@@ -249,26 +314,26 @@ class QMetric:
         Compute Entanglement Variance as described in QASMBench
         :return: None
         """
-        avg_cnot = 2*self.dual_gate_count/self.qubit_count
+        avg_cnot = 2 * self.dual_gate_count / self.qubit_count
         print(self.dual_gate_count)
         print(self.dual_gate_count_id)
         numerator = 0
         for value in list(self.dual_gate_count_id.values()):
-            numerator += np.square(value-avg_cnot)
-        numerator = np.log(numerator+1)
-        self.entanglement_variance = numerator/self.qubit_count
+            numerator += np.square(value - avg_cnot)
+        numerator = np.log(numerator + 1)
+        self.entanglement_variance = numerator / self.qubit_count
 
     # ----------------------------
     # Return the gate performed in
     # a QASM operation.
     # ----------------------------
-    def get_op(self,line):
+    def get_op(self, line):
         """
         :param line: A line of QASM
         :return: The operation contained in the line of QASM
         """
         if line.find("(") != -1:
-            line = line[:line.find("(")].strip()
+            line = line[: line.find("(")].strip()
         op = line.split(" ")[0].strip()
         return op
 
@@ -282,7 +347,7 @@ class QMetric:
         graph = nx.Graph()
         for op in dag.two_qubit_ops():
             q1, q2 = op.qargs
-            graph.add_edge(q1.index, q2.index)
+            graph.add_edge(q1._index, q2._index)
         degree_sum = sum([graph.degree(n) for n in graph.nodes])
         self.communication = degree_sum / (num_qubits * (num_qubits - 1))
 
@@ -298,7 +363,7 @@ class QMetric:
         for i, layer in enumerate(dag.layers()):
             for op in layer["partition"]:
                 for qubit in op:
-                    activity_matrix[qubit.index, i] = 1
+                    activity_matrix[qubit._index, i] = 1
         self.liveness = np.sum(activity_matrix) / (num_qubits * dag.depth())
 
     def compute_parallelism(self):
@@ -360,26 +425,26 @@ class QMetric:
         if n_e == 0:
             self.supermarq_depth = 0
         else:
-            self.supermarq_depth =  n_ed / n_e
+            self.supermarq_depth = n_ed / n_e
 
     # ----------------------------
     # Return the  ID's
     # in a operation
     # ----------------------------
-    def get_qubit_id(self,line):
+    def get_qubit_id(self, line):
         """
         Search for qubits that are active in a line of QASM code
         :param line: Line of QASM code
         :return: Qubits being used in the line of QASM code
         """
-        line = line.strip(';')
-        op_qubits = line.split(" ")[1].strip().split(',')
+        line = line.strip(";")
+        op_qubits = line.split(" ")[1].strip().split(",")
         qubit_ids = []
         for op_qubit in op_qubits:
-            if '[' in op_qubit:
-                qubit_prefix = op_qubit.split('[')[0]
-                num = int(re.findall('^.*?\[[^\d]*(\d+)[^\d]*\].*$',op_qubit)[0])
-                qubit_ids.append(qubit_prefix+str(num))
+            if "[" in op_qubit:
+                qubit_prefix = op_qubit.split("[")[0]
+                num = int(re.findall("^.*?\[[^\d]*(\d+)[^\d]*\].*$", op_qubit)[0])
+                qubit_ids.append(qubit_prefix + str(num))
             else:
                 qubit_ids = [x for x in self.qubit_labelled.keys() if op_qubit in x]
         return qubit_ids
@@ -390,42 +455,42 @@ class QMetric:
         :return: None
         """
         gate_def = "gate"
-        temporary_qasm = np.array([x.strip() for x in self.qasm.split('\n')])
-        start_point,end_point = None,None
+        temporary_qasm = np.array([x.strip() for x in self.qasm.split("\n")])
+        start_point, end_point = None, None
         to_remove = []
-        for index,line in enumerate(temporary_qasm):
-            line_contents = line.split(' ')
+        for index, line in enumerate(temporary_qasm):
+            line_contents = line.split(" ")
             if line_contents[0].strip() == gate_def:
                 start_point = index
                 gate_name = line_contents[1]
-                qubit_count = len(line_contents[2].split(','))
-            if line_contents[0].strip() == '}':
+                qubit_count = len(line_contents[2].split(","))
+            if line_contents[0].strip() == "}":
                 end_point = index
             if start_point and end_point:
                 gate_count = 0
                 cx_count = 0
-                for i in range(end_point-start_point-1):
-                    print(temporary_qasm[start_point+i+1])
-                    if '{' in temporary_qasm[start_point+i+1]:
+                for i in range(end_point - start_point - 1):
+                    print(temporary_qasm[start_point + i + 1])
+                    if "{" in temporary_qasm[start_point + i + 1]:
                         continue
-                    operation = self.get_op(temporary_qasm[start_point+i+1])
+                    operation = self.get_op(temporary_qasm[start_point + i + 1])
                     cx_count += self.CX_TABLE[operation]
                     gate_count += self.GATE_TABLE[operation]
-                to_remove.append((start_point,end_point))
-                end_point,start_point=None,None
+                to_remove.append((start_point, end_point))
+                end_point, start_point = None, None
                 self.USER_DEFINED_GATES[gate_name] = None
-                self.CX_TABLE[gate_name]=cx_count
-                self.GATE_TABLE[gate_name]=gate_count
+                self.CX_TABLE[gate_name] = cx_count
+                self.GATE_TABLE[gate_name] = gate_count
         valid_indexes = np.ones(len(temporary_qasm))
-        for start,end in to_remove:
-            valid_indexes[start:end+1] = 0
-        temporary_qasm = temporary_qasm[valid_indexes.astype('bool')]
+        for start, end in to_remove:
+            valid_indexes[start : end + 1] = 0
+        temporary_qasm = temporary_qasm[valid_indexes.astype("bool")]
         self.qasm = temporary_qasm
 
     def decompose_circuit(self):
         gates = list(self.USER_DEFINED_GATES.keys())
         for _ in range(len(gates)):
-            self.circuit = self.circuit.decompose(gates_to_decompose = gates)
+            self.circuit = self.circuit.decompose(gates_to_decompose=gates)
 
     def preprocess_qasm(self):
         """
@@ -434,8 +499,8 @@ class QMetric:
         """
         qreg = "qreg"
         creg = "creg"
-        regex_str = '^.*?\[[^\d]*(\d+)[^\d]*\].*$'
-        regex_id_str = '(.*?)\s*\['
+        regex_str = "^.*?\[[^\d]*(\d+)[^\d]*\].*$"
+        regex_id_str = "(.*?)\s*\["
         # Break QASM into line by line commands
         qasm = self.qasm
         # Search for all qubit declaration lines
@@ -445,38 +510,44 @@ class QMetric:
         qbit_labelled = {}
         # Load all qubits into the qubit count and give them unique IDs
         for qubit_index in qubit_count:
-            info_string = qubit_index.split(' ')[-1]
+            info_string = qubit_index.split(" ")[-1]
             qubit_id = re.findall(regex_id_str, info_string)[0]
-            qbit_counts= int(re.findall(regex_str, qubit_index)[0])
+            qbit_counts = int(re.findall(regex_str, qubit_index)[0])
             try:
-                previous_cap = max(qbit_labelled.values()) +1
+                previous_cap = max(qbit_labelled.values()) + 1
             except:
                 previous_cap = 0
             for i in range(qbit_counts):
-                qbit_labelled[str(qubit_id)+str(i)] = i + previous_cap
-            t_qubits +=int(qbit_counts)
+                qbit_labelled[str(qubit_id) + str(i)] = i + previous_cap
+            t_qubits += int(qbit_counts)
         # Search for all cbit declaration lines
         cbit_count = [x for x in qasm if creg in x]
         cbit_labelled = {}
         # Load all cbits into the cbit count and give them unique IDs
         for cbit_index in cbit_count:
-            info_string = cbit_index.split(' ')[-1]
-            cbit_id = re.findall(regex_id_str,info_string)[0]
-            cbit_counts= int(re.findall(regex_str, cbit_index)[0])
+            info_string = cbit_index.split(" ")[-1]
+            cbit_id = re.findall(regex_id_str, info_string)[0]
+            cbit_counts = int(re.findall(regex_str, cbit_index)[0])
             for i in range(cbit_counts):
-                if len(cbit_labelled)==0:
-                    cbit_labelled[str(cbit_id)+str(i)]=i
+                if len(cbit_labelled) == 0:
+                    cbit_labelled[str(cbit_id) + str(i)] = i
                 else:
-                    cbit_labelled[str(cbit_id)+str(i)]=i+max(cbit_labelled.values())
-            t_cbits +=int(cbit_counts)
+                    cbit_labelled[str(cbit_id) + str(i)] = i + max(
+                        cbit_labelled.values()
+                    )
+            t_cbits += int(cbit_counts)
         # Remove all If statements from the QASM code, as we count these as gates.
-        for i,line in enumerate(qasm):
-            if self.trigger_key in line[:3]: # Fix this later - IF causes problems
-                indx = line.find(' ')
-                line = line[indx+1:]
+        for i, line in enumerate(qasm):
+            if self.trigger_key in line[:3]:  # Fix this later - IF causes problems
+                indx = line.find(" ")
+                line = line[indx + 1 :]
                 qasm[i] = line
-        filtered_qasm = [x for x in qasm if not any(skip_key in x for skip_key in self.skip_keys)]
-        filtered_qasm = [x for x in filtered_qasm if x != '']  # Drop any trailing end of lists such as ''
+        filtered_qasm = [
+            x for x in qasm if not any(skip_key in x for skip_key in self.skip_keys)
+        ]
+        filtered_qasm = [
+            x for x in filtered_qasm if x != ""
+        ]  # Drop any trailing end of lists such as ''
         measurement_count = len([x for x in filtered_qasm if self.measure_key in x])
         filtered_qasm = [x for x in filtered_qasm if not self.measure_key in x]
         self.measurement_count = measurement_count
@@ -490,20 +561,22 @@ class QMetric:
     def get_gate_count(self):
         """
         Count number of gates in QASM. Must be defined in the self.GATE_TABLE
-        :return: 
+        :return:
         """
         count = 0
         for gate in self.processed_qasm:
             n_qubits = len(self.get_qubit_id(gate))
             op = self.get_op(gate)
             if op not in self.GATE_TABLE:
-                print(f"{op} not counted towards evaluation. Not a valid from default gate tables")
+                print(
+                    f"{op} not counted towards evaluation. Not a valid from default gate tables"
+                )
                 continue
             else:
-                count += self.GATE_TABLE[op]*n_qubits
+                count += self.GATE_TABLE[op] * n_qubits
         self.gate_count = count
 
-    def get_measure_count(self,qasm_list):
+    def get_measure_count(self, qasm_list):
         """
         Count number of measurements in a circuit
         :param qasm_list: QASM string
@@ -529,7 +602,9 @@ class QMetric:
             qubit_id = self.get_qubit_id(gate)
             op = self.get_op(gate)
             if op not in self.CX_TABLE:
-                print(f"{op} not counted towards evaluation. Not a valid from default gate tables")
+                print(
+                    f"{op} not counted towards evaluation. Not a valid from default gate tables"
+                )
                 continue
             else:
                 count += self.CX_TABLE[op]
@@ -539,7 +614,7 @@ class QMetric:
                 self.dual_gate_count_id[self.qubit_labelled[qb]] += self.CX_TABLE[op]
         self.dual_gate_count = count
 
-    def get_dual_qubit_id_gate_count(self,qubit_id):
+    def get_dual_qubit_id_gate_count(self, qubit_id):
         """
         Count number of dual qubit operations for a given qubit ID such as q0 or q1
         :param qasm_list: qubit ID
@@ -549,7 +624,9 @@ class QMetric:
         for gate in self.processed_qasm:
             op = self.get_op(gate)
             if op not in self.CX_TABLE:
-                print(f"{op} not counted towards evaluation. Not a valid from default gate tables")
+                print(
+                    f"{op} not counted towards evaluation. Not a valid from default gate tables"
+                )
                 continue
             if qubit_id not in self.get_qubit_id(gate):
                 continue
@@ -566,10 +643,12 @@ class QMetric:
             n_qubits = len(self.get_qubit_id(gate))
             op = self.get_op(gate)
             if op not in self.GATE_TABLE:
-                print(f"{op} not counted towards evaluation. Not a valid from default gate tables")
+                print(
+                    f"{op} not counted towards evaluation. Not a valid from default gate tables"
+                )
                 continue
             else:
-                count += n_qubits*(self.GATE_TABLE[op] - self.CX_TABLE[op])
+                count += n_qubits * (self.GATE_TABLE[op] - self.CX_TABLE[op])
         self.single_gate_count = count
 
     def get_qubit_depths(self):
@@ -581,7 +660,9 @@ class QMetric:
         for gate in self.processed_qasm:
             op = self.get_op(gate)
             if op not in self.GATE_TABLE:
-                print(f"{op} not counted towards evaluation. Not a valid from default gate tables")
+                print(
+                    f"{op} not counted towards evaluation. Not a valid from default gate tables"
+                )
                 continue
             else:
                 qubit_id = self.get_qubit_id(gate)
@@ -617,7 +698,9 @@ class QMetric:
         Get largest number of dual qubit gates on a single qubit
         :return:
         """
-        self.max_dual_qubit_count = self.get_dual_qubit_id_gate_count(self.max_qubit_depth_id)
+        self.max_dual_qubit_count = self.get_dual_qubit_id_gate_count(
+            self.max_qubit_depth_id
+        )
 
     def get_circuit_matrix(self):
         """
@@ -631,12 +714,12 @@ class QMetric:
         for i, layer in enumerate(dag.layers()):
             for op in layer["partition"]:
                 for qubit in op:
-                    circ_matrix[qubit.index, i] = 1
-        self.circ_matrix = circ_matrix   
+                    circ_matrix[qubit._index, i] = 1
+        self.circ_matrix = circ_matrix
 
     """
     Deprecated Get_circuit_matrix function. New function uses a DAG
-    This logic can be used if a DAG is not available. 
+    This logic can be used if a DAG is not available.
     """
     # def get_circuit_matrix(self):
     #     #2*n+3 is arbitrary, +3 incase it is very small, and 2* to compensate
