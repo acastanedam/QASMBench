@@ -1,6 +1,6 @@
 # Usage
 
-## [QASMBench interface for qiskit](./qiskit.py)
+## [QASMBench interface for pyqcc]
 
 A class for managing a collection of QASM circuits for benchmarking.
 The interface can behave like a iterator, a list, or a dict.
@@ -63,4 +63,10 @@ The interface can behave like a iterator, a list, or a dict.
 
     # return the length of the benchmark
     bm_length = len(bm)
+    ```
+
+4. The script run_qasmbench.py allows to compile a sub-set of circuits using pyqcc:
+
+    ```sh
+    python run_qasmbench.py
     ```
