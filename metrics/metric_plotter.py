@@ -10,12 +10,11 @@
 
 
 import os
-from typing import *
+from typing import Dict, Tuple
 
 import matplotlib.pyplot as plt
 import qiskit
-
-from metrics.QMetric import QMetric
+from QMetric import QMetric
 
 
 class MetricPlotter:
@@ -83,7 +82,7 @@ class MetricPlotter:
             circuit = qiskit.QuantumCircuit.from_qasm_file(file)
             yield circuit
 
-    def load_next_qasm(self) -> str:
+    def load_next_qasm(self) -> Tuple[str]:
         """
         Iterator object over each QASM in the self.files, populated via self.search_for_qasm().
         :return: Returns a QASM string representing the next circuit in the list.
