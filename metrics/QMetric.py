@@ -8,15 +8,11 @@
 # PNNL IPID: 31924-E, IR: PNNL-SA-153380, PNNL-SA-162867, ECCN:EAR99
 # ----------------------------------------------------------------------
 
-import itertools
 import re
 
-import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import qiskit
-from qiskit import ClassicalRegister, QuantumCircuit, QuantumRegister
-from qiskit.compiler import *
 from qiskit.transpiler.passes import RemoveBarriers
 
 # Metrics required for QASM Bench:
