@@ -267,8 +267,7 @@ class QASMBenchmark:
     def _qcc_compile(self, circ_file):
         compile_args = {"program_name": circ_file}
         compile_args.update(**self.transpile_args)
-        qasm = main(compile_args, pyqcc_env=True)
-        _qasm_out_name = str(qasm.out_filename)
+        _qasm_out_name = main(compile_args)
         _circuit = QuantumCircuit.from_qasm_file(f"{_qasm_out_name}.qasm")
         return _circuit
 

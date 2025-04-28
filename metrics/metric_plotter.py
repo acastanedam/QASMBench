@@ -233,9 +233,11 @@ class MetricPlotter:
 
 
 if __name__ == "__main__":
-    size = "small"
+    # FIXME: read from command line or do in interface
+    size = "compiled/aqt_offline_simulator_noise/small"
     feature = "gate_density"
 
+    # FIXME: remove long names in x-labels
     metric = MetricPlotter(file_path=size)
     metric.search_for_qasm()
     metric.process_qasm_files()

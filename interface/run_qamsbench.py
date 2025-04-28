@@ -1,13 +1,17 @@
+import os
+
 from qasmbenchmark import QASMBenchmark
 
+_pwd = os.getcwd()
+
 # path to the root directory of QASMBench
-path = "./"
+path = _pwd
 
 # selected category for QASMBench
 category = "small"
 
 # select only the circuits with the number of qubits in the list
-num_qubits_list = list(range(3, 5))
+num_qubits_list = list(range(3, 4))
 
 # whether to remove the final measurement in the circuit
 remove_final_measurements = True
@@ -25,11 +29,17 @@ PLOT_OUTPUT = True
 
 # FIXME: There is weird bug with IQM
 providers_backends = {
-    "ibmq": "fake_lima",
     "aqt": "offline_simulator_noise",
-    # "iqm": "fake_deneb",
+    "ibmq": "fake_lima",
+    "iqm": "fake_deneb",
 }
+
 for provider, backend in providers_backends.items():
+    output_dir = f"compiled/{provider}_{backend}/{category}"
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    os.chdir(output_dir)
+
     transpile_args = {
         "service_or_sdk": SERVICE_OR_SDK,
         "provider_name": provider,
@@ -38,6 +48,8 @@ for provider, backend in providers_backends.items():
         "optimization_level": OPTIMIZATION_LEVEL,
         "execution_type": EXECUTION_TYPE,
         "plot_output": PLOT_OUTPUT,
+        "no_pyqcc_env": False,
+        "container": False,
     }
 
     bm = QASMBenchmark(
@@ -51,3 +63,5 @@ for provider, backend in providers_backends.items():
 
     for _circuit_name in bm.circ_name_list:
         _circuit = bm.get(_circuit_name)
+
+    os.chdir(_pwd)

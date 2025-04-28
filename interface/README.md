@@ -65,8 +65,10 @@ The interface can behave like a iterator, a list, or a dict.
     bm_length = len(bm)
     ```
 
-4. The script run_qasmbench.py allows to compile a sub-set of circuits using pyqcc:
+4. The script run_qasmbench.py allows to compile a sub-set of circuits using pyqcc.
+   Run from the *root* directory:
 
     ```sh
-    python run_qasmbench.py
+    python interface/run_qasmbench.py
     ```
+
