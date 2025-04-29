@@ -20,14 +20,12 @@ remove_final_measurements = True
 do_transpile = True
 
 # arguments for pyqcc
-# FIXME: execution does work always, depends on the type of circuit
 SERVICE_OR_SDK = "qiskit"
 COMPILER_NAME = "qiskit"
 OPTIMIZATION_LEVEL = 2
 EXECUTION_TYPE = "off"
 PLOT_OUTPUT = True
 
-# FIXME: There is weird bug with IQM
 providers_backends = {
     "aqt": "offline_simulator_noise",
     "ibmq": "fake_lima",
