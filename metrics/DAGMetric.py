@@ -24,6 +24,7 @@ from qiskit.transpiler.passes import RemoveBarriers
 # - Number of 1-Qubit gates
 
 
+# TODO: Refactor for a cleaner code
 class DAGMetric:
     """
     QMetric describes the metric class for analysing QASM. On calling ".evaluate_qasm", the QASM will be evaluated

@@ -14,7 +14,8 @@ from typing import Dict, Tuple
 
 import matplotlib.pyplot as plt
 import qiskit
-from QMetric import QMetric
+# from QMetric import QMetric
+from DAGMetric import DAGMetric as QMetric
 
 
 class MetricPlotter:
