@@ -24,19 +24,19 @@ from qiskit.transpiler.passes import RemoveBarriers
 # - Number of 1-Qubit gates
 
 
-class QMetric:
+class DAGMetric:
     """
     QMetric describes the metric class for analysing QASM. On calling ".evaluate_qasm", the QASM will be evaluated
     through each of the "compute_...." clauses below under ".evaluate_qasm". To change any of the tags that it generates,
     or if you need to change the metrics being calculated, look under evaluate_qasm().
     """
 
-    def __init__(self, qasm):
+    def __init__(self, qasm, user_defined_gates: list = []):
         """
-        QMetric initialisation function. Gate tables are populated, and QASM preprocessing is performed.
+        QMetric initialisation function.
         :param qasm: QASM string representing the circuit to be analysed.
         """
-        self.USER_DEFINED_GATES = []
+        self.USER_DEFINED_GATES = user_defined_gates
         self.qasm = qasm
 
         self.get_circuit()
@@ -88,20 +88,12 @@ class QMetric:
         self.dual_gate_count = len(self.dag.two_qubit_ops())
 
     def get_dual_qubit_id_gate_count(self, qubit_id):
+        qubit_twoqubit_gates = {qubit._index: 0 for qubit in self.dag.qubits}
         two_qubit_gate_count = 0
 
-        # Iterate through all operational nodes in the DAG
-        # op_nodes() yields DAGOpNode objects representing gates, resets, measurements etc.
-        # include_directives=False excludes things like barriers, snapshots.
         for node in self.dag.op_nodes(include_directives=False):
-            # node.op gives the Operation (Gate, Measure, Reset etc.)
-            # node.qargs gives the list of Qubit objects the operation acts on
-
-            # Check if it's a Gate instance and acts on exactly two qubits
             if isinstance(node.op, Gate) and len(node.qargs) == 2:
                 q1_obj, q2_obj = node.qargs
-
-                # Find the indices of these qubits within the original circuit context
                 try:
                     idx1 = self.circuit.find_bit(q1_obj).index
                     idx2 = self.circuit.find_bit(q2_obj).index
@@ -110,71 +102,37 @@ class QMetric:
                         f"Warning: Could not find qubit {q1_obj} or {q2_obj} "
                         f"from DAG node '{node.op.name}' in circuit. Skipping node."
                     )
-                    # Optionally re-raise:
-                    # raise CircuitError(f"Could not find qubit in circuit: {e}") from e
                     continue  # Skip this node if qubit can't be found
 
-                # Check if the target qubit's index matches either involved qubit
-                if qubit_id == idx1 or qubit_id == idx2:
+                qubit_twoqubit_gates[idx1] += 1
+                qubit_twoqubit_gates[idx2] += 1
+
+                if qubit_id in [idx1, idx2]:
                     two_qubit_gate_count += 1
 
+        self.dual_gate_count_id = qubit_twoqubit_gates
         return two_qubit_gate_count
 
     def get_single_qubit_gate_count(self):
-        """
-        Get number of single qubit gates
-        :return:
-        """
-
         self.single_gate_count = self.gate_count - self.dual_gate_count
 
     def get_qubit_depths(self):
-        """
-        Calculates the depth of the circuit restricted to each qubit.
-
-        Args:
-            circuit: The QuantumCircuit object.
-
-        Returns:
-            A dictionary where keys are qubit indices (int) and
-            values are the depth (int) for that qubit.
-            Depth is defined as the layer index of the last operation
-            involving that qubit. Returns 0 if the qubit is unused.
-        """
-        # Initialize depths for each qubit to 0
-        # We use qubit indices as keys
         qubit_depths = {qubit._index: 0 for qubit in self.dag.qubits}
-
-        # Get the layers from the DAG
-        # Each layer contains operations that can be performed in parallel
         layers = list(self.dag.layers())  # Convert generator to list
 
-        # Iterate through layers, keeping track of the layer index (depth)
         for i, layer in enumerate(layers):
             layer_depth = i + 1  # Depth is 1-based index
 
-            # Find all qubits acted upon by operations in this layer
-            # We look at the 'op' nodes in the layer's graph
-            # include_directives=False ignores things like barriers, snapshots
             op_nodes = layer["graph"].op_nodes(include_directives=False)
             for op_node in op_nodes:
                 # op_node.qargs gives a list of Qubit objects involved in the operation
                 for qarg in op_node.qargs:
-                    # Update the depth for this qubit to the current layer's depth
-                    # Since we iterate layer by layer, this automatically finds the *last*
-                    # layer the qubit is involved in.
                     if qarg._index in qubit_depths:
                         qubit_depths[qarg._index] = layer_depth
-                    # else: # This     case should not happen if qubit_depths is initialized correctly
-                    #     print(f"Warning: Qubit {qarg} from DAG not found in circuit.qubits")
 
         self.qubit_depth = qubit_depths
 
     def get_maximum_qubit_depth(self):
-        """
-        Get maximum qubit depth
-        :return:
-        """
         self.get_qubit_depths()
         qubit_depths = self.qubit_depth
         max_value = max(qubit_depths.values())  # maximum value
@@ -185,17 +143,9 @@ class QMetric:
         return max_keys, max_value
 
     def get_total_gate_count(self):
-        """
-        Get total number of gates in QASM
-        :return:
-        """
         self.total_gate_count = self.dual_gate_count + self.single_gate_count
 
     def get_max_dual_qubit_depth(self):
-        """
-        Get largest number of dual qubit gates on a single qubit
-        :return:
-        """
         self.max_dual_qubit_count = self.get_dual_qubit_id_gate_count(
             self.max_qubit_depth_id
         )
@@ -371,7 +321,7 @@ class QMetric:
     # COMPUTE METRICS
     def evaluate_qasm(self):
         """
-        Call this function on a QMetric object to evaluate qasm and compute metrics.
+        Call this function on a QMetric object to compute metrics.
         :return: A dictionary containing information about the QASM, and respective metrics from SupermarQ and QASMBench
         """
         self.calc_operation_density()
