@@ -26,8 +26,10 @@ for ((i=0; i<${#service_or_sdk[@]}; i++)); do
             for cat in "${categories[@]}"; do
                 command="$command --compiler_name $cnm --optimization_level $optl --category $cat"
                 log_file="$output_dir/$sod-$prov-$bck-$cnm-$optl-$cat.log"
-                echo "Running: $command" >> "$log_file"
-                ( $command 2>&1 ) | tee -a "$log_file"
+                err_file="$output_dir/$sod-$prov-$bck-$cnm-$optl-$cat.err"
+                echo "Running: $command" 
+
+                ( $command 2>&1 1>/dev/tty | tee -a $err_file ) | tee -a "$log_file"
             done
         done
     done
