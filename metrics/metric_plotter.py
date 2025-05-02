@@ -247,15 +247,16 @@ if __name__ == "__main__":
         for dirpath, dirnames, filenames in os.walk(start_path):
             # Check if the current directory ('dirpath') contains any files
             if filenames:  # This checks if the list 'filenames' is not empty
-                # If it contains files, add this directory's path to our list
-                dirs_with_files_list.append(
-                    dirpath
-                    # os.path.abspath(dirpath)
-                )  # Store absolute path
+                if "metrics" not in dirpath:
+                    # If it contains files, add this directory's path to our list
+                    dirs_with_files_list.append(
+                        dirpath
+                        # os.path.abspath(dirpath)
+                    )  # Store absolute path
 
         return dirs_with_files_list
 
-    input_path = "./compiled/programs/"
+    input_path = "./compiled/"
     input_directories = find_all_dirs_with_files(input_path)
 
     feature = "gate_density"
