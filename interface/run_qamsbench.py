@@ -25,16 +25,18 @@ SERVICE_OR_SDK = "qiskit"
 COMPILER_NAME = "qiskit"
 OPTIMIZATION_LEVEL = 2
 EXECUTION_TYPE = "off"
-PLOT_OUTPUT = True
+PLOT_OUTPUT = False
 
 PROVIDERS_BACKENDS = {
+    "alicebob": "EMU:40Q:LOGICAL_TARGET",
     "aqt": "offline_simulator_noise",
-    "ibmq": "fake_lima",
+    "ibmq": "fake_kolkata",
+    "ionq": "ionq_qpu",
     "iqm": "fake_apollo",
 }
 
 # max workers
-MAX_WORKERS = 3
+MAX_WORKERS = len(PROVIDERS_BACKENDS.keys())
 
 
 def process_provider_backend(provider, backend):
