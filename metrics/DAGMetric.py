@@ -25,6 +25,7 @@ from qiskit.transpiler.passes import RemoveBarriers
 
 
 # TODO: Refactor for a cleaner code
+# TODO⚠: revise metric definitions
 class DAGMetric:
     """
     QMetric describes the metric class for analysing QASM. On calling ".evaluate_qasm", the QASM will be evaluated
