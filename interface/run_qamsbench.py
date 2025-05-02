@@ -38,7 +38,7 @@ MAX_WORKERS = 3
 
 
 def process_provider_backend(provider, backend):
-    output_dir = f"{path}/compiled/{provider}_{backend}/{category}"
+    output_dir = f"{path}/compiled/{category}"
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     original_dir = os.getcwd()
