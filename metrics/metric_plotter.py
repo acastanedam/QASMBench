@@ -259,8 +259,6 @@ if __name__ == "__main__":
     input_path = "./compiled/"
     input_directories = find_all_dirs_with_files(input_path)
 
-    feature = "gate_density"
-
     for directory in input_directories:
         metric = MetricPlotter(file_path=directory)
 
@@ -270,4 +268,8 @@ if __name__ == "__main__":
         output_dir = directory.replace("programs", "metrics")
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
-        metric.plot_feature(feature, filepath=f"{output_dir}/{feature}.png")
+
+        features_list = metric.QASMBENCH_KEYS
+        features_list.extend(metric.SUPERMARQ_KEYS)
+        for feature in features_list:
+            metric.plot_feature(feature, filepath=f"{output_dir}/{feature}.png")
