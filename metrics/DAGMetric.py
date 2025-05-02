@@ -89,15 +89,17 @@ class DAGMetric:
         self.dual_gate_count = len(self.dag.two_qubit_ops())
 
     def get_dual_qubit_id_gate_count(self, qubit_id):
-        qubit_twoqubit_gates = {qubit._index: 0 for qubit in self.dag.qubits}
+        qubit_twoqubit_gates = {}
+        for _iqubit in range(self.dag.num_qubits()):
+            qubit_twoqubit_gates[_iqubit] = 0
         two_qubit_gate_count = 0
 
         for node in self.dag.op_nodes(include_directives=False):
             if isinstance(node.op, Gate) and len(node.qargs) == 2:
                 q1_obj, q2_obj = node.qargs
                 try:
-                    idx1 = self.circuit.find_bit(q1_obj).index
-                    idx2 = self.circuit.find_bit(q2_obj).index
+                    idx1 = self.dag.find_bit(q1_obj).index
+                    idx2 = self.dag.find_bit(q2_obj).index
                 except:
                     print(
                         f"Warning: Could not find qubit {q1_obj} or {q2_obj} "
@@ -118,7 +120,9 @@ class DAGMetric:
         self.single_gate_count = self.gate_count - self.dual_gate_count
 
     def get_qubit_depths(self):
-        qubit_depths = {qubit._index: 0 for qubit in self.dag.qubits}
+        qubit_depths = {}
+        for _iqubit in range(self.dag.num_qubits()):
+            qubit_depths[_iqubit] = 0
         layers = list(self.dag.layers())  # Convert generator to list
 
         for i, layer in enumerate(layers):
@@ -128,13 +132,13 @@ class DAGMetric:
             for op_node in op_nodes:
                 # op_node.qargs gives a list of Qubit objects involved in the operation
                 for qarg in op_node.qargs:
-                    if qarg._index in qubit_depths:
-                        qubit_depths[qarg._index] = layer_depth
+                    dag_index = self.dag.find_bit(qarg).index
+                    if dag_index in qubit_depths:
+                        qubit_depths[dag_index] = layer_depth
 
         self.qubit_depth = qubit_depths
 
     def get_maximum_qubit_depth(self):
-        self.get_qubit_depths()
         qubit_depths = self.qubit_depth
         max_value = max(qubit_depths.values())  # maximum value
         max_keys = [k for k, v in qubit_depths.items() if v == max_value][0]
