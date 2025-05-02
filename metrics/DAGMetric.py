@@ -141,7 +141,7 @@ class DAGMetric:
     def get_maximum_qubit_depth(self):
         qubit_depths = self.qubit_depth
         max_value = max(qubit_depths.values())  # maximum value
-        max_keys = [k for k, v in qubit_depths.items() if v == max_value][0]
+        max_keys = [k for k, v in qubit_depths.items() if v == max_value]
         # getting all keys containing the `maximum`
         self.max_qubit_depth_id = max_keys
         self.max_qubit_depth = max_value
@@ -152,7 +152,7 @@ class DAGMetric:
 
     def get_max_dual_qubit_depth(self):
         self.max_dual_qubit_count = self.get_dual_qubit_id_gate_count(
-            self.max_qubit_depth_id
+            self.max_qubit_depth_id[0]
         )
 
     def get_circuit_matrix(self):
