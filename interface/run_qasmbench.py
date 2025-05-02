@@ -3,6 +3,12 @@ import os
 
 from qasmbenchmark import QASMBenchmark
 
+
+def tuple_of_ints(arg: str) -> tuple[int, int]:
+    _map = map(int, arg.split(","))
+    return tuple(_map)
+
+
 parser = argparse.ArgumentParser(description="Process QASMBenchmark settings")
 
 # Add arguments for variables
@@ -23,6 +29,13 @@ parser.add_argument(
 parser.add_argument(
     "--category", type=str, default="small", help="Category qasmbench to use"
 )
+parser.add_argument(
+    "--qubits_range",
+    nargs="+",
+    default=(3, 5),
+    type=tuple_of_ints,
+    help="Qubits range",
+)
 
 # Parse the arguments
 args = parser.parse_args()
@@ -33,6 +46,7 @@ BACKEND = args.backend
 COMPILER_NAME = args.compiler_name
 OPTIMIZATION_LEVEL = args.optimization_level
 CATEGORY = args.category
+QUBITS_RANGE = args.qubits_range
 
 # Actual path
 _pwd = os.getcwd()
@@ -42,7 +56,7 @@ PATH = _pwd
 CATEGORY = f"programs/{CATEGORY}"
 
 # select only the circuits with the number of qubits in the list
-NUM_QUBITS_LIST = list(range(3, 5))
+NUM_QUBITS_LIST = list(range(*QUBITS_RANGE))
 
 # whether to remove the final measurement in the circuit
 REMOVE_FINAL_MEASUREMENTS = False
