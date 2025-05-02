@@ -234,13 +234,39 @@ class MetricPlotter:
 
 
 if __name__ == "__main__":
-    # FIXME: read from command line or do in interface
-    size = "compiled/aqt_offline_simulator_noise/small"
+
+    def find_all_dirs_with_files(start_path):
+        dirs_with_files_list = []  # Initialize an empty list to store results
+
+        # Check if the starting path is a valid directory
+        if not os.path.isdir(start_path):
+            print(f"Error: '{start_path}' is not a valid directory.")
+            return []  # Return an empty list for invalid input
+
+        # os.walk yields (current_dir_path, sub_dir_names, file_names)
+        for dirpath, dirnames, filenames in os.walk(start_path):
+            # Check if the current directory ('dirpath') contains any files
+            if filenames:  # This checks if the list 'filenames' is not empty
+                # If it contains files, add this directory's path to our list
+                dirs_with_files_list.append(
+                    dirpath
+                    # os.path.abspath(dirpath)
+                )  # Store absolute path
+
+        return dirs_with_files_list
+
+    input_path = "./compiled/programs/"
+    input_directories = find_all_dirs_with_files(input_path)
+
     feature = "gate_density"
 
-    # FIXME: remove long names in x-labels
-    metric = MetricPlotter(file_path=size)
-    metric.search_for_qasm()
-    metric.process_qasm_files()
+    for directory in input_directories:
+        metric = MetricPlotter(file_path=directory)
 
-    metric.plot_feature(feature, filepath=f"./{size}_{feature}.png")
+        metric.search_for_qasm()
+        metric.process_qasm_files()
+
+        output_dir = directory.replace("programs", "metrics")
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        metric.plot_feature(feature, filepath=f"{output_dir}/{feature}.png")
