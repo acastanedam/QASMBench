@@ -10,9 +10,9 @@
 
 import networkx as nx
 import numpy as np
-import qiskit
+from qiskit import QuantumCircuit
 from qiskit.circuit import Gate
-from qiskit.compiler.transpiler import DAGCircuit
+from qiskit.converters import circuit_to_dag
 from qiskit.transpiler.passes import RemoveBarriers
 
 # Metrics required for QASM Bench:
@@ -44,22 +44,8 @@ class DAGMetric:
         self.get_circuit()
         self.get_dag()
 
-        self.get_qubit_count()
-        self.get_clbit_count()
-        self.get_gate_count()
-        self.get_dual_qubit_gate_count()
-        self.get_single_qubit_gate_count()
-        self.get_total_gate_count()
-        self.get_measure_count()
-
-        self.get_qubit_depths()
-        self.get_maximum_qubit_depth()
-        self.get_circuit_matrix()
-        self.get_max_dual_qubit_depth()
-
-    # PROPERTIES
     def get_circuit(self, decompose=True, remove_barriers=True):
-        self.circuit = qiskit.QuantumCircuit.from_qasm_str(self.qasm)
+        self.circuit = QuantumCircuit.from_qasm_str(self.qasm)
         if remove_barriers:
             self.circuit = RemoveBarriers()(self.circuit)
         if decompose and len(self.USER_DEFINED_GATES) > 0:
@@ -71,29 +57,91 @@ class DAGMetric:
         )
 
     def get_dag(self):
-        self.dag: DAGCircuit = qiskit.converters.circuit_to_dag(self.circuit)
+        self.dag = circuit_to_dag(self.circuit)
 
-    def get_qubit_count(self):
-        self.qubit_count = self.dag.num_qubits()
+    # PROPERTIES
+    @property
+    def width(self):
+        return self.dag.num_qubits()
 
-    def get_clbit_count(self):
-        self.clbit_count = self.dag.num_clbits()
+    @property
+    def clbit_count(self):
+        return self.dag.num_clbits()
 
-    def get_gate_count(self):
-        self.gate_count = len(self.dag.gate_nodes())
+    @property
+    def depth(self):
+        return self.dag.depth()
 
-    def get_measure_count(self):
+    @property
+    def gate_count(self):
+        return len(self.dag.gate_nodes())
+
+    @property
+    def measurement_count(self):
         self.dag_operations = self.dag.count_ops()
-        self.measurement_count = self.dag_operations["measure"]
+        return self.dag_operations["measure"]
 
-    def get_dual_qubit_gate_count(self):
-        self.dual_gate_count = len(self.dag.two_qubit_ops())
+    @property
+    def dual_gate_count(self):
+        return len(self.dag.two_qubit_ops())
 
-    def get_dual_qubit_id_gate_count(self, qubit_id):
-        qubit_twoqubit_gates = {}
+    @property
+    def single_gate_count(self):
+        return self.gate_count - self.dual_gate_count
+
+    @property
+    def total_gate_count(self):
+        return self.dual_gate_count + self.single_gate_count
+
+    @property
+    def qubit_depths(self):
+        qubit_depths = {}
         for _iqubit in range(self.dag.num_qubits()):
+            qubit_depths[_iqubit] = 0
+        layers = list(self.dag.layers())  # Convert generator to list
+
+        for i, layer in enumerate(layers):
+            layer_depth = i + 1  # Depth is 1-based index
+
+            op_nodes = layer["graph"].op_nodes(include_directives=False)
+            for op_node in op_nodes:
+                # op_node.qargs gives a list of Qubit objects involved in the operation
+                for qarg in op_node.qargs:
+                    dag_index = self.dag.find_bit(qarg).index
+                    if dag_index in qubit_depths:
+                        qubit_depths[dag_index] = layer_depth
+
+        return qubit_depths
+
+    @property
+    def circuit_matrix(self):
+        """
+        Generate a matrix representing the time evolution of the circuit. 1 represents a qubit being active, 0 inactive.
+        :return:
+        """
+        circ_matrix = np.zeros((self.width, self.depth))
+        for i, layer in enumerate(self.dag.layers()):
+            for op in layer["partition"]:
+                for qubit in op:
+                    circ_matrix[qubit._index, i] = 1
+        return circ_matrix
+
+    @property
+    def maximum_qubit_depth(self):
+        qubit_depths = self.qubit_depths
+        max_value = max(qubit_depths.values())  # maximum value
+        max_keys = [k for k, v in qubit_depths.items() if v == max_value]
+        return max_keys, max_value
+
+    @property
+    def max_dual_qubit_depth(self):
+        return self.dual_gate_count_id[self.maximum_qubit_depth[0][0]]
+
+    @property
+    def dual_gate_count_id(self):
+        qubit_twoqubit_gates = {}
+        for _iqubit in range(self.width):
             qubit_twoqubit_gates[_iqubit] = 0
-        two_qubit_gate_count = 0
 
         for node in self.dag.op_nodes(include_directives=False):
             if isinstance(node.op, Gate) and len(node.qargs) == 2:
@@ -111,64 +159,7 @@ class DAGMetric:
                 qubit_twoqubit_gates[idx1] += 1
                 qubit_twoqubit_gates[idx2] += 1
 
-                if qubit_id in [idx1, idx2]:
-                    two_qubit_gate_count += 1
-
-        self.dual_gate_count_id = qubit_twoqubit_gates
-        return two_qubit_gate_count
-
-    def get_single_qubit_gate_count(self):
-        self.single_gate_count = self.gate_count - self.dual_gate_count
-
-    def get_qubit_depths(self):
-        qubit_depths = {}
-        for _iqubit in range(self.dag.num_qubits()):
-            qubit_depths[_iqubit] = 0
-        layers = list(self.dag.layers())  # Convert generator to list
-
-        for i, layer in enumerate(layers):
-            layer_depth = i + 1  # Depth is 1-based index
-
-            op_nodes = layer["graph"].op_nodes(include_directives=False)
-            for op_node in op_nodes:
-                # op_node.qargs gives a list of Qubit objects involved in the operation
-                for qarg in op_node.qargs:
-                    dag_index = self.dag.find_bit(qarg).index
-                    if dag_index in qubit_depths:
-                        qubit_depths[dag_index] = layer_depth
-
-        self.qubit_depth = qubit_depths
-
-    def get_maximum_qubit_depth(self):
-        qubit_depths = self.qubit_depth
-        max_value = max(qubit_depths.values())  # maximum value
-        max_keys = [k for k, v in qubit_depths.items() if v == max_value]
-        # getting all keys containing the `maximum`
-        self.max_qubit_depth_id = max_keys
-        self.max_qubit_depth = max_value
-        return max_keys, max_value
-
-    def get_total_gate_count(self):
-        self.total_gate_count = self.dual_gate_count + self.single_gate_count
-
-    def get_max_dual_qubit_depth(self):
-        self.max_dual_qubit_count = self.get_dual_qubit_id_gate_count(
-            self.max_qubit_depth_id[0]
-        )
-
-    def get_circuit_matrix(self):
-        """
-        Generate a matrix representing the time evolution of the circuit. 1 represents a qubit being active, 0 inactive.
-        :return:
-        """
-        num_qubits = self.qubit_count
-        circ_matrix = np.zeros((num_qubits, self.dag.depth()))
-        self.depth = self.dag.depth()
-        for i, layer in enumerate(self.dag.layers()):
-            for op in layer["partition"]:
-                for qubit in op:
-                    circ_matrix[qubit._index, i] = 1
-        self.circ_matrix = circ_matrix
+        return qubit_twoqubit_gates
 
     # METRIC DEFINITIONS:
     # ----------------------------
@@ -181,7 +172,7 @@ class DAGMetric:
         """
         self.entanglement = len(self.dag.two_qubit_ops()) / len(self.dag.gate_nodes())
         self.operation_density = (self.single_gate_count + 2 * self.dual_gate_count) / (
-            self.depth * self.qubit_count
+            self.depth * self.width
         )
 
     # ----------------------------
@@ -193,7 +184,7 @@ class DAGMetric:
         :return: None
         """
         self.measurement_ratio = (
-            np.log(self.circ_matrix.shape[0] * self.depth) / self.measurement_count
+            np.log(self.circuit_matrix.shape[0] * self.depth) / self.measurement_count
         )
 
     # ----------------------------
@@ -222,7 +213,7 @@ class DAGMetric:
         :return: None
         """
         self.application_time = self.circ_matrix.shape[1]
-        self.quantum_area = self.application_time * self.qubit_count
+        self.quantum_area = self.application_time * self.width
 
     # ----------------------------
     # Calculate described entanglement variance from QASMBench
@@ -232,21 +223,21 @@ class DAGMetric:
         Compute Entanglement Variance as described in QASMBench
         :return: None
         """
-        avg_cnot = 2 * self.dual_gate_count / self.qubit_count
+        avg_cnot = 2 * self.dual_gate_count / self.width
         print(self.dual_gate_count)
         print(self.dual_gate_count_id)
         numerator = 0
         for value in list(self.dual_gate_count_id.values()):
             numerator += np.square(value - avg_cnot)
         numerator = np.log(numerator + 1)
-        self.entanglement_variance = numerator / self.qubit_count
+        self.entanglement_variance = numerator / self.width
 
     def compute_communication(self):
         """
         Compute Communication metric as described in SupermarQ
         :return: None
         """
-        num_qubits = self.qubit_count
+        num_qubits = self.width
         graph = nx.Graph()
         for op in self.dag.two_qubit_ops():
             q1, q2 = op.qargs
@@ -259,7 +250,7 @@ class DAGMetric:
         Compute Liveness metric as described in SupermarQ
         :return: None
         """
-        num_qubits = self.qubit_count
+        num_qubits = self.width
         activity_matrix = np.zeros((num_qubits, self.dag.depth()))
         for i, layer in enumerate(self.dag.layers()):
             for op in layer["partition"]:
@@ -284,7 +275,7 @@ class DAGMetric:
         """
         temporary_circuit = self.circuit.copy()
         temporary_circuit.remove_final_measurements()
-        dag = qiskit.converters.circuit_to_dag(temporary_circuit)
+        dag = circuit_to_dag(temporary_circuit)
         reset_moments = 0
         gate_depth = dag.depth()
         for layer in dag.layers():
@@ -342,9 +333,9 @@ class DAGMetric:
         self.compute_measurement()
         self.compute_parallelism()
         print("-" * 10 + "Baseline Metrics" + "-" * 10)
-        print(f"Qubit Count: {self.qubit_count}")
-        print(f"Maximum Qubit Depth: {self.max_qubit_depth}")
-        print(f"Maximum Qubit Depth ID: {self.max_qubit_depth_id}")
+        print(f"Qubit Count: {self.width}")
+        print(f"Maximum Qubit Depth: {self.maximum_qubit_depth[1]}")
+        print(f"Maximum Qubit Depth ID: {self.maximum_qubit_depth[0][0]}")
         print(f"Single Gate Count: {self.single_gate_count}")
         print(f"Dual Gate Count: {self.dual_gate_count}")
         print("-" * 10 + "Calculated Metrics" + "-" * 10)
@@ -365,10 +356,10 @@ class DAGMetric:
             f"Measurement: {self.measurement}"
         )
         return {
-            "qubit_count": self.qubit_count,
+            "qubit_count": self.width,
             # Circuit depth is defined in calculations below, therefore we need not a function, same as width
             "circuit_depth": self.depth,
-            "circuit_width": self.qubit_count,
+            "circuit_width": self.width,
             "retention_lifespan": self.fdm,
             "gate_density": self.operation_density,
             "dual_gate_count": self.dual_gate_count,
@@ -376,7 +367,7 @@ class DAGMetric:
             "size_factor": self.size_factor,
             "gate_count": self.total_gate_count,
             "entanglement_variance": self.entanglement_variance,
-            "circuit_depth": self.circ_matrix.shape[1],
+            "circuit_depth": self.circuit_matrix.shape[1],
             "communication_supermarq": self.communication,
             "measurement_supermarq": self.measurement,
             "depth_supermarq": self.supermarq_depth,
