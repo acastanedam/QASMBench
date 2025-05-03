@@ -173,8 +173,6 @@ class QMetric:
         cx_table = {}
         self.circuit = qiskit.QuantumCircuit.from_qasm_str(qasm)
         self.circuit = RemoveBarriers()(self.circuit)
-        # TODO: all of this preprocessing stuff should be on the qiskit circuit
-        # and agnostic to the gates => follow DAG based approach
         """
         QASM preprocessing and analysis is performed from here onwards.
         """
