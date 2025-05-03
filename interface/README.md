@@ -69,6 +69,14 @@ The interface can behave like a iterator, a list, or a dict.
    Run from the *root* directory:
 
     ```sh
-    python interface/run_qasmbench.py
+    interface/run_compile.sh
     ```
+    
+The compiled programs (using pyqcc interface) will be located in `compiled/progams`, logfiles in `logs/`.
 
+To compute and plot the metrics:
+
+    ```sh
+    python metrics/metric_plotter.py 
+    ```
+the figures will be located in `compiled/metrics`.
