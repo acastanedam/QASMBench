@@ -73,6 +73,10 @@ class DAGMetric:
         return self.dag.depth()
 
     @property
+    def quantum_area(self):
+        return self.width * self.depth
+
+    @property
     def gate_count(self):
         return len(self.dag.gate_nodes())
 
@@ -82,8 +86,12 @@ class DAGMetric:
         return self.dag_operations["measure"]
 
     @property
+    def two_qubit_gates(self):
+        return self.dag.two_qubit_ops()
+
+    @property
     def dual_gate_count(self):
-        return len(self.dag.two_qubit_ops())
+        return len(self.two_qubit_gates)
 
     @property
     def single_gate_count(self):
@@ -170,10 +178,9 @@ class DAGMetric:
         Compute Operation Density and set self.operation_density (Known as Gate Density in QASMBench)
         :return: None
         """
-        self.entanglement = len(self.dag.two_qubit_ops()) / len(self.dag.gate_nodes())
-        self.operation_density = (self.single_gate_count + 2 * self.dual_gate_count) / (
-            self.depth * self.width
-        )
+        self.operation_density = (
+            self.single_gate_count + 2 * self.dual_gate_count
+        ) / self.quantum_area
 
     # ----------------------------
     # Calculate Measurement Density,
@@ -183,19 +190,17 @@ class DAGMetric:
         Compute Measurement Density and set self.measurement_density (Known as Measurement Ratio in QASMBench)
         :return: None
         """
-        self.measurement_ratio = (
-            np.log(self.circuit_matrix.shape[0] * self.depth) / self.measurement_count
-        )
+        self.measurement_ratio = np.log(self.quantum_area) / self.measurement_count
 
     # ----------------------------
     # Calculate Retention Lifespan
     # ----------------------------
-    def calc_fdm(self):
+    def calc_retention_lifespan(self):
         """
-        Compute Retention Lifespan from QASMBench and set self.fdm
+        Compute Retention Lifespan from QASMBench and set self.retention_lifespan
         :return: None
         """
-        self.fdm = np.log(self.depth)
+        self.retention_lifespan = np.log(self.depth)
 
     def calc_size_factor(self):
         """
@@ -203,17 +208,6 @@ class DAGMetric:
         :return:  None
         """
         self.size_factor = np.log(self.gate_count)
-
-    # ----------------------------
-    # Calculate Quantum Area
-    # ----------------------------
-    def calc_quantum_area(self):
-        """
-        Compute Application Time in time steps (number of "evolutions"), and compute the circuit area
-        :return: None
-        """
-        self.application_time = self.circ_matrix.shape[1]
-        self.quantum_area = self.application_time * self.width
 
     # ----------------------------
     # Calculate described entanglement variance from QASMBench
@@ -224,8 +218,6 @@ class DAGMetric:
         :return: None
         """
         avg_cnot = 2 * self.dual_gate_count / self.width
-        print(self.dual_gate_count)
-        print(self.dual_gate_count_id)
         numerator = 0
         for value in list(self.dual_gate_count_id.values()):
             numerator += np.square(value - avg_cnot)
@@ -237,38 +229,31 @@ class DAGMetric:
         Compute Communication metric as described in SupermarQ
         :return: None
         """
-        num_qubits = self.width
         graph = nx.Graph()
-        for op in self.dag.two_qubit_ops():
+        for op in self.two_qubit_gates:
             q1, q2 = op.qargs
             graph.add_edge(q1._index, q2._index)
         degree_sum = sum([graph.degree(n) for n in graph.nodes])
-        self.communication = degree_sum / (num_qubits * (num_qubits - 1))
+        self.communication = degree_sum / (self.width * (self.width - 1))
 
     def compute_liveness(self):
         """
         Compute Liveness metric as described in SupermarQ
         :return: None
         """
-        num_qubits = self.width
-        activity_matrix = np.zeros((num_qubits, self.dag.depth()))
-        for i, layer in enumerate(self.dag.layers()):
-            for op in layer["partition"]:
-                for qubit in op:
-                    activity_matrix[qubit._index, i] = 1
-        self.liveness = np.sum(activity_matrix) / (num_qubits * self.dag.depth())
+        self.liveness = np.sum(self.circuit_matrix) / (self.quantum_area)
 
     def compute_parallelism(self):
         """
         Compute Parallelism metric as described in SupermarQ
         :return: None
         """
-        self.dag.remove_all_ops_named("barrier")
-        self.parallelism = max(
-            1 - (self.circuit.depth() / len(self.dag.gate_nodes())), 0
-        )
+        self.parallelism = (self.total_gate_count / self.depth - 1) / (self.width - 1)
+        # self.parallelism = max(
+        #     1 - (self.circuit.depth() / len(self.dag.gate_nodes())), 0
+        # )
 
-    def compute_measurement(self):
+    def compute_intermediate_measurement(self):
         """
         Compute Measurement metric as described in SupermarQ
         :return: None
@@ -286,34 +271,34 @@ class DAGMetric:
             if reset_present:
                 reset_moments += 1
 
-        self.measurement = reset_moments / gate_depth
+        self.intermediate_measurement = reset_moments / gate_depth
 
     def compute_entanglement(self):
         """
         Compute Entanglement metric as described in SupermarQ
         :return: None
         """
-        self.entanglement = len(self.dag.two_qubit_ops()) / len(self.dag.gate_nodes())
+        self.entanglement = self.dual_gate_count / self.total_gate_count
 
-    def compute_depth(self):
+    def compute_critical_depth(self):
         """
         Compute Depth metric as described in SupermarQ
         :return: None
         """
         n_ed = 0
-        two_q_gates = set([op.name for op in self.dag.two_qubit_ops()])
+        two_q_gates = set([op.name for op in self.two_qubit_gates])
         for name in two_q_gates:
             try:
                 n_ed += self.dag.count_ops_longest_path()[name]
             except KeyError:
                 continue
-        n_e = len(self.dag.two_qubit_ops())
+        n_e = self.dual_gate_count
         if n_ed == 0:
-            self.supermarq_depth = 0
+            self.critical_depth = 0
         if n_e == 0:
-            self.supermarq_depth = 0
+            self.critical_depth = 0
         else:
-            self.supermarq_depth = n_ed / n_e
+            self.critical_depth = n_ed / n_e
 
     # COMPUTE METRICS
     def evaluate_qasm(self):
@@ -321,16 +306,18 @@ class DAGMetric:
         Call this function on a QMetric object to compute metrics.
         :return: A dictionary containing information about the QASM, and respective metrics from SupermarQ and QASMBench
         """
+        # QASMBENCH
         self.calc_operation_density()
         self.calc_measurement_density()
-        self.calc_fdm()
+        self.calc_retention_lifespan()
         self.calc_size_factor()
         self.calc_entanglement_variance()
+        # SUPERMARQ
         self.compute_communication()
-        self.compute_depth()
+        self.compute_critical_depth()
         self.compute_liveness()
         self.compute_entanglement()
-        self.compute_measurement()
+        self.compute_intermediate_measurement()
         self.compute_parallelism()
         print("-" * 10 + "Baseline Metrics" + "-" * 10)
         print(f"Qubit Count: {self.width}")
@@ -342,7 +329,7 @@ class DAGMetric:
         print(f"---QASMBENCH METRICS---")
         print(
             f"Gate Density: {self.operation_density:.3f}\n"
-            f"Retention Lifespan: {self.fdm:.3f}\n"
+            f"Retention Lifespan: {self.retention_lifespan:.3f}\n"
             f"Measurement Density: {self.measurement_ratio:.3f}\n"
             f"Entanglement Variance : {self.entanglement_variance:.3f}\n"
         )
@@ -352,15 +339,15 @@ class DAGMetric:
             f"Liveness: {self.liveness}\n"
             f"Parallelism: {self.parallelism}\n"
             f"Entanglement: {self.entanglement}\n"
-            f"Depth: {self.supermarq_depth}\n"
-            f"Measurement: {self.measurement}"
+            f"Depth: {self.critical_depth}\n"
+            f"Measurement: {self.intermediate_measurement}"
         )
         return {
             "qubit_count": self.width,
             # Circuit depth is defined in calculations below, therefore we need not a function, same as width
             "circuit_depth": self.depth,
             "circuit_width": self.width,
-            "retention_lifespan": self.fdm,
+            "retention_lifespan": self.retention_lifespan,
             "gate_density": self.operation_density,
             "dual_gate_count": self.dual_gate_count,
             "measurement_density": self.measurement_ratio,
@@ -369,8 +356,8 @@ class DAGMetric:
             "entanglement_variance": self.entanglement_variance,
             "circuit_depth": self.circuit_matrix.shape[1],
             "communication_supermarq": self.communication,
-            "measurement_supermarq": self.measurement,
-            "depth_supermarq": self.supermarq_depth,
+            "measurement_supermarq": self.intermediate_measurement,
+            "depth_supermarq": self.critical_depth,
             "entanglement_supermarq": self.entanglement,
             "parallelism_supermarq": self.parallelism,
             "liveness_supermarq": self.liveness,
