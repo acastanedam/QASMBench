@@ -5,7 +5,7 @@ service_or_sdk=("qiskit" "qiskit" "qiskit" "qiskit")
 providers=("aqt" "ibmq" "ionq" "iqm")
 backends=("offline_simulator_noise" "fake_kolkata" "ionq_qpu" "fake_apollo")
 compilers=("qiskit" "pytket")
-optimization_levels=(1 2 3)
+optimization_levels=(1 2)
 categories=("small")
 qubits_range="3,6"
 

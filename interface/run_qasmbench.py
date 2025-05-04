@@ -62,9 +62,6 @@ NUM_QUBITS_LIST = list(range(*QUBITS_RANGE))
 REMOVE_FINAL_MEASUREMENTS = False
 
 # arguments for pyqcc
-SERVICE_OR_SDK = "qiskit"
-COMPILER_NAME = "qiskit"
-OPTIMIZATION_LEVEL = 2
 EXECUTION_TYPE = "off"
 PLOT_OUTPUT = False
 # max workers
